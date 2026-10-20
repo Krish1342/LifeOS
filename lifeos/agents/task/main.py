@@ -144,9 +144,48 @@ async def handle_complete_task(params: Dict[str, Any], message: Message) -> Task
         ]
     )
 
+
+async def handle_bulk_create_tasks(params: Dict[str, Any], message: Message) -> Task:
+    task_items = params.get("tasks", [])
+    user_id = message.metadata.get("user_id", "default_user") if message.metadata else "default_user"
+    created = []
+
+    for item in task_items:
+        task_id = f"task_{uuid.uuid4().hex[:10]}"
+        record = {
+            "task_id": task_id,
+            "user_id": user_id,
+            "title": item.get("title", "Untitled Action Item"),
+            "description": item.get("description", item.get("action", "")),
+            "status": "open",
+            "priority": item.get("priority", item.get("urgency", "medium")),
+            "due_date": item.get("due_date"),
+            "source": item.get("source", "extracted_action_item"),
+            "source_ref": item.get("source_message_id"),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        try:
+            db = MongoDB.get_database()
+            await db.tasks.insert_one(dict(record))
+        except Exception:
+            _in_memory_tasks.append(record)
+        created.append(record)
+
+    return Task(
+        contextId=message.contextId,
+        status=TaskStatus(state=TaskState.COMPLETED),
+        artifacts=[
+            Artifact(
+                name="bulk_tasks_created",
+                parts=[DataPart(data={"tasks": created, "count": len(created)})]
+            )
+        ]
+    )
+
 agent.register_skill("create_task", handle_create_task)
 agent.register_skill("list_open_tasks", handle_list_open_tasks)
 agent.register_skill("complete_task", handle_complete_task)
+agent.register_skill("bulk_create_tasks", handle_bulk_create_tasks)
 app = agent.app
 
 if __name__ == "__main__":

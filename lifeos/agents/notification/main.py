@@ -12,6 +12,7 @@ from lifeos.shared.a2a import (
     Message,
 )
 from lifeos.shared.http import ScopedHTTPClient
+from lifeos.shared.slack.client import SlackConnector
 
 # Per-agent outbound security boundary: Notification Agent can ONLY contact Slack API
 http_client = ScopedHTTPClient(allowed_hosts=["slack.com"])
@@ -32,11 +33,16 @@ card = AgentCard(
 )
 
 agent = A2AAgentApp(card)
+slack_connector = SlackConnector()
 
 
 async def handle_send_slack(params: Dict[str, Any], message: Message) -> Task:
-    channel = params.get("channel", "#lifeos-updates")
+    channel = params.get("channel")
     text = params.get("message", "")
+    blocks = params.get("blocks")
+
+    result = await slack_connector.post_message(text=text, channel=channel, blocks=blocks)
+
     return Task(
         contextId=message.contextId,
         status=TaskStatus(state=TaskState.COMPLETED),
@@ -46,10 +52,10 @@ async def handle_send_slack(params: Dict[str, Any], message: Message) -> Task:
                 parts=[
                     DataPart(
                         data={
-                            "delivered": True,
-                            "channel": channel,
-                            "text_preview": text[:60] + ("..." if len(text) > 60 else ""),
-                            "mock": True
+                            "delivered": result.get("ok", False),
+                            "channel": result.get("channel"),
+                            "ts": result.get("ts"),
+                            "is_mock": result.get("is_mock", False)
                         }
                     )
                 ]

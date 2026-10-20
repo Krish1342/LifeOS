@@ -2,10 +2,12 @@ import os
 import sys
 import subprocess
 import time
+import webbrowser
 import click
 import httpx
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 
 console = Console()
 
@@ -32,6 +34,25 @@ def keygen():
     new_key = TokenEncryption.generate_key_b64()
     console.print(f"[bold green]Generated AES-256-GCM Key:[/bold green] {new_key}")
     console.print("Add this to your [bold].env[/bold] as [cyan]LIFEOS_ENCRYPTION_KEY=[/cyan]" + new_key)
+
+
+@cli.command()
+@click.argument("service", type=click.Choice(["calendar", "email", "drive"]))
+def connect(service: str):
+    """Initiate OAuth authorization for a Google service."""
+    service_map = {
+        "calendar": "google_calendar",
+        "email": "gmail",
+        "drive": "google_drive"
+    }
+    target_service = service_map[service]
+    url = f"http://127.0.0.1:8000/oauth/connect/{target_service}"
+    console.print(f"[bold cyan]Opening browser for {service.capitalize()} authorization...[/bold cyan]")
+    console.print(f"URL: {url}")
+    try:
+        webbrowser.open(url)
+    except Exception:
+        console.print(f"Please open this link in your browser: {url}")
 
 
 @cli.command()
@@ -96,18 +117,55 @@ def health():
 
 @cli.command()
 @click.argument("command_text")
-def run(command_text: str):
+@click.option("--yes", "-y", is_flag=True, help="Auto-approve pending write operations without prompting")
+def run(command_text: str, yes: bool):
     """Execute a natural-language command through the Orchestrator."""
     url = "http://127.0.0.1:8000/api/command"
     console.print(f"[bold cyan]Dispatching instruction:[/bold cyan] '{command_text}'...")
     try:
-        resp = httpx.post(url, json={"command": command_text}, timeout=30.0)
+        resp = httpx.post(url, json={"command": command_text, "auto_confirm": yes}, timeout=30.0)
         resp.raise_for_status()
         data = resp.json()
+
+        # Check if write confirmation is required
+        if data.get("status") == "confirmation_required":
+            console.print("\n[bold yellow]⚠️  Write Confirmation Required[/bold yellow]")
+            console.print(Panel(data.get("prompt", "Please approve pending actions:"), title="Confirmation Prompt"))
+            
+            table = Table(title="Pending Write Actions")
+            table.add_column("#", style="dim")
+            table.add_column("Action", style="bold")
+            table.add_column("Details")
+
+            for idx, action in enumerate(data.get("pending_actions", []), 1):
+                act_name = action.get("action", "unknown")
+                details = ", ".join(f"{k}: {v}" for k, v in action.items() if k != "action")
+                table.add_row(str(idx), act_name, details)
+            console.print(table)
+
+            approved = click.confirm("\nApprove execution of these actions?", default=True)
+            conf_resp = httpx.post(
+                "http://127.0.0.1:8000/api/confirm",
+                json={
+                    "confirmation_id": data["confirmation_id"],
+                    "approved": approved
+                },
+                timeout=30.0
+            )
+            conf_resp.raise_for_status()
+            conf_data = conf_resp.json()
+            if approved:
+                console.print(f"[bold green]✓[/bold green] {conf_data.get('message')}")
+            else:
+                console.print(f"[yellow]✗[/yellow] {conf_data.get('message')}")
+            return
+
+        # Regular completed output
         console.print(f"[bold green]Status:[/bold green] {data.get('status')}")
-        console.print(f"[bold]Agents Contacted:[/bold] {', '.join(data.get('agents_contacted', []))}")
-        console.print("\n[bold]Results:[/bold]")
-        console.print_json(data=data.get("results"))
+        if "briefing" in data:
+            console.print(Panel(data["briefing"], title="LifeOS Briefing", style="green"))
+        elif "results" in data:
+            console.print_json(data=data.get("results"))
     except Exception as e:
         console.print(f"[red]Execution failed: {e}[/red]")
 
