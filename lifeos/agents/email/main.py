@@ -12,6 +12,8 @@ from lifeos.shared.a2a import (
     Message,
 )
 from lifeos.shared.http import ScopedHTTPClient
+from lifeos.shared.google.gmail import GmailConnector
+from lifeos.shared.llm import LocalLLMClient, DataSensitivity
 
 # Per-agent outbound security boundary: Email Agent can ONLY contact Google APIs
 http_client = ScopedHTTPClient(allowed_hosts=["www.googleapis.com"])
@@ -35,10 +37,37 @@ card = AgentCard(
 )
 
 agent = A2AAgentApp(card)
+connector = GmailConnector()
+llm = LocalLLMClient()
 
 
 async def handle_summarize_inbox(params: Dict[str, Any], message: Message) -> Task:
     query = params.get("query", "is:unread")
+    messages = await connector.list_messages(query=query)
+
+    summary_text = "No unread messages found."
+    if messages:
+        # Prepare email snippets for local LLM summarization
+        email_content = "\n".join([
+            f"- From: {m['sender']} | Subject: {m['subject']} | Snippet: {m['snippet']}"
+            for m in messages
+        ])
+        prompt = (
+            "Summarize the following inbox emails concisely in 2-3 bullet points, highlighting any urgent items:\n"
+            f"{email_content}"
+        )
+        try:
+            llm_result = await llm.generate(
+                prompt=prompt,
+                sensitivity=DataSensitivity.PRIVATE
+            )
+            summary_text = llm_result["text"]
+        except Exception:
+            # Fallback heuristic summary if local LLM is temporarily offline
+            summary_text = f"Found {len(messages)} unread messages. Highlights: " + "; ".join(
+                [f"'{m['subject']}' from {m['sender']}" for m in messages[:3]]
+            )
+
     return Task(
         contextId=message.contextId,
         status=TaskStatus(state=TaskState.COMPLETED),
@@ -49,9 +78,9 @@ async def handle_summarize_inbox(params: Dict[str, Any], message: Message) -> Ta
                     DataPart(
                         data={
                             "query": query,
-                            "summary": "No unread urgent messages detected.",
-                            "action_items": [],
-                            "total_processed": 0
+                            "summary": summary_text,
+                            "total_processed": len(messages),
+                            "messages": messages
                         }
                     )
                 ]
@@ -61,6 +90,21 @@ async def handle_summarize_inbox(params: Dict[str, Any], message: Message) -> Ta
 
 
 async def handle_extract_action_items(params: Dict[str, Any], message: Message) -> Task:
+    query = params.get("query", "is:unread")
+    messages = await connector.list_messages(query=query)
+    action_items = []
+
+    for m in messages:
+        snippet_lower = m.get("snippet", "").lower() + " " + m.get("subject", "").lower()
+        if any(w in snippet_lower for w in ["action", "review", "confirm", "approve", "deadline", "by friday"]):
+            action_items.append({
+                "source_message_id": m.get("id"),
+                "subject": m.get("subject"),
+                "sender": m.get("sender"),
+                "action": f"Review and respond to {m.get('subject')}",
+                "urgency": "high" if "urgent" in snippet_lower or "confirm" in snippet_lower else "medium"
+            })
+
     return Task(
         contextId=message.contextId,
         status=TaskStatus(state=TaskState.COMPLETED),
@@ -70,8 +114,8 @@ async def handle_extract_action_items(params: Dict[str, Any], message: Message) 
                 parts=[
                     DataPart(
                         data={
-                            "action_items": [],
-                            "total_processed": 0
+                            "action_items": action_items,
+                            "total_processed": len(messages)
                         }
                     )
                 ]
@@ -79,8 +123,27 @@ async def handle_extract_action_items(params: Dict[str, Any], message: Message) 
         ]
     )
 
+
+async def handle_draft_reply(params: Dict[str, Any], message: Message) -> Task:
+    to = params.get("to")
+    subject = params.get("subject", "Re: Follow up")
+    body = params.get("body", "Thank you for the update. I have reviewed this and will proceed.")
+    draft = await connector.draft_reply(to=to, subject=subject, body=body)
+
+    return Task(
+        contextId=message.contextId,
+        status=TaskStatus(state=TaskState.COMPLETED),
+        artifacts=[
+            Artifact(
+                name="draft_reply",
+                parts=[DataPart(data={"draft": draft})]
+            )
+        ]
+    )
+
 agent.register_skill("summarize_inbox", handle_summarize_inbox)
 agent.register_skill("extract_action_items", handle_extract_action_items)
+agent.register_skill("draft_reply", handle_draft_reply)
 app = agent.app
 
 if __name__ == "__main__":

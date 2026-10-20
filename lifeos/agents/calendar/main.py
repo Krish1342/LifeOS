@@ -12,6 +12,7 @@ from lifeos.shared.a2a import (
     Message,
 )
 from lifeos.shared.http import ScopedHTTPClient
+from lifeos.shared.google.calendar import CalendarConnector
 
 # Per-agent outbound security boundary: Calendar Agent can ONLY contact Google APIs
 http_client = ScopedHTTPClient(allowed_hosts=["www.googleapis.com"])
@@ -36,14 +37,15 @@ card = AgentCard(
 )
 
 agent = A2AAgentApp(card)
+connector = CalendarConnector()
 
 
 async def handle_list_events(params: Dict[str, Any], message: Message) -> Task:
-    # Skeleton implementation for Foundation Phase
-    start_date = params.get("start_date", "today")
-    end_date = params.get("end_date", "next_week")
-    
-    # In Week 3, this will execute real Google Calendar API requests via http_client
+    start_date = params.get("start_date")
+    end_date = params.get("end_date")
+    events = await connector.list_events(time_min=start_date, time_max=end_date)
+    conflicts = await connector.detect_conflicts(time_min=start_date, time_max=end_date)
+
     return Task(
         contextId=message.contextId,
         status=TaskStatus(state=TaskState.COMPLETED),
@@ -53,10 +55,9 @@ async def handle_list_events(params: Dict[str, Any], message: Message) -> Task:
                 parts=[
                     DataPart(
                         data={
-                            "events": [],
-                            "total_count": 0,
-                            "range": {"start": start_date, "end": end_date},
-                            "status": "ready"
+                            "events": events,
+                            "total_count": len(events),
+                            "conflicts": conflicts
                         }
                     )
                 ]
@@ -64,7 +65,35 @@ async def handle_list_events(params: Dict[str, Any], message: Message) -> Task:
         ]
     )
 
+
+async def handle_create_event(params: Dict[str, Any], message: Message) -> Task:
+    summary = params.get("summary", "New LifeOS Event")
+    start = params.get("start")
+    end = params.get("end")
+    description = params.get("description", "")
+    location = params.get("location", "")
+
+    event = await connector.create_event(
+        summary=summary,
+        start_time=start,
+        end_time=end,
+        description=description,
+        location=location
+    )
+
+    return Task(
+        contextId=message.contextId,
+        status=TaskStatus(state=TaskState.COMPLETED),
+        artifacts=[
+            Artifact(
+                name="created_event",
+                parts=[DataPart(data={"event": event})]
+            )
+        ]
+    )
+
 agent.register_skill("list_events", handle_list_events)
+agent.register_skill("create_event", handle_create_event)
 app = agent.app
 
 if __name__ == "__main__":
