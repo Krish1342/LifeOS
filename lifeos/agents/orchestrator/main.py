@@ -26,6 +26,8 @@ from lifeos.shared.llm import LocalLLMClient, DataSensitivity
 from lifeos.shared.db.mongo import MongoDB
 from lifeos.shared.google.auth import GoogleAuthManager
 from lifeos.shared.scheduler import WorkflowScheduler, ScheduleJob
+from lifeos.shared.audit import PrivacyAuditTracker
+from lifeos.shared.http import RateLimitMiddleware
 from lifeos.web import DASHBOARD_HTML
 
 card = AgentCard(
@@ -54,6 +56,7 @@ DOMAIN_AGENTS = {
 }
 
 agent_app = A2AAgentApp(card)
+agent_app.app.add_middleware(RateLimitMiddleware, max_requests=300, window_seconds=60.0)
 a2a_client = A2AClient(timeout=0.5)
 llm_client = LocalLLMClient()
 agent_registry = AgentRegistry()
@@ -479,6 +482,20 @@ async def register_domain_agent(req: AgentRegisterRequest):
     if not card:
         raise HTTPException(status_code=400, detail=f"Failed to fetch agent card from {req.url}")
     return {"status": "registered", "agent": card.name, "skills": [s.id for s in card.skills]}
+
+
+@agent_app.app.get("/api/audit")
+async def get_audit_trail(limit: int = 50, user_id: str = "default_user"):
+    """Returns recent agent execution logs from MongoDB."""
+    runs = await PrivacyAuditTracker.get_recent_runs(limit=limit, user_id=user_id)
+    return {"runs": runs, "count": len(runs)}
+
+
+@agent_app.app.get("/api/privacy/status")
+async def get_privacy_status(user_id: str = "default_user"):
+    """Verifies that private user data has remained local with 0 cloud LLM leaks."""
+    metrics = await PrivacyAuditTracker.get_privacy_metrics(user_id=user_id)
+    return metrics
 
 
 @agent_app.app.get("/api/health/all")
