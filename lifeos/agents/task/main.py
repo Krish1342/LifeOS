@@ -1,17 +1,18 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
+
 from lifeos.shared.a2a import (
     A2AAgentApp,
     AgentCard,
     AgentSkill,
+    Artifact,
+    DataPart,
+    Message,
     SupportedInterface,
     Task,
     TaskState,
     TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
 )
 from lifeos.shared.db.mongo import MongoDB
 
@@ -37,7 +38,7 @@ card = AgentCard(
 agent = A2AAgentApp(card)
 
 # In-memory storage cache as fallback when MongoDB cluster is offline
-_in_memory_tasks: List[Dict[str, Any]] = [
+_in_memory_tasks: list[dict[str, Any]] = [
     {
         "task_id": "task_demo_001",
         "title": "Review Q4 budget proposal",
@@ -51,7 +52,7 @@ _in_memory_tasks: List[Dict[str, Any]] = [
 ]
 
 
-async def handle_create_task(params: Dict[str, Any], message: Message) -> Task:
+async def handle_create_task(params: dict[str, Any], message: Message) -> Task:
     task_id = f"task_{uuid.uuid4().hex[:10]}"
     user_id = message.metadata.get("user_id", "default_user") if message.metadata else "default_user"
     new_task = {
@@ -64,7 +65,7 @@ async def handle_create_task(params: Dict[str, Any], message: Message) -> Task:
         "due_date": params.get("due_date"),
         "source": params.get("source", "manual"),
         "source_ref": params.get("source_ref"),
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(UTC).isoformat()
     }
 
     try:
@@ -85,7 +86,7 @@ async def handle_create_task(params: Dict[str, Any], message: Message) -> Task:
     )
 
 
-async def handle_list_open_tasks(params: Dict[str, Any], message: Message) -> Task:
+async def handle_list_open_tasks(params: dict[str, Any], message: Message) -> Task:
     user_id = message.metadata.get("user_id", "default_user") if message.metadata else "default_user"
     tasks = []
 
@@ -115,7 +116,7 @@ async def handle_list_open_tasks(params: Dict[str, Any], message: Message) -> Ta
     )
 
 
-async def handle_complete_task(params: Dict[str, Any], message: Message) -> Task:
+async def handle_complete_task(params: dict[str, Any], message: Message) -> Task:
     task_id = params.get("task_id")
     updated = False
 
@@ -123,7 +124,7 @@ async def handle_complete_task(params: Dict[str, Any], message: Message) -> Task
         db = MongoDB.get_database()
         res = await db.tasks.update_one(
             {"task_id": task_id},
-            {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+            {"$set": {"status": "completed", "completed_at": datetime.now(UTC).isoformat()}}
         )
         updated = res.modified_count > 0
     except Exception:
@@ -145,7 +146,7 @@ async def handle_complete_task(params: Dict[str, Any], message: Message) -> Task
     )
 
 
-async def handle_bulk_create_tasks(params: Dict[str, Any], message: Message) -> Task:
+async def handle_bulk_create_tasks(params: dict[str, Any], message: Message) -> Task:
     task_items = params.get("tasks", [])
     user_id = message.metadata.get("user_id", "default_user") if message.metadata else "default_user"
     created = []
@@ -162,7 +163,7 @@ async def handle_bulk_create_tasks(params: Dict[str, Any], message: Message) -> 
             "due_date": item.get("due_date"),
             "source": item.get("source", "extracted_action_item"),
             "source_ref": item.get("source_message_id"),
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(UTC).isoformat()
         }
         try:
             db = MongoDB.get_database()

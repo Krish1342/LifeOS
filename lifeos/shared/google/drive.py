@@ -1,5 +1,7 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from googleapiclient.discovery import build
+
 from lifeos.shared.google.auth import GoogleAuthManager
 
 
@@ -20,7 +22,7 @@ class DriveConnector:
         self,
         folder_id: str = "root",
         max_results: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         service = await self._get_service()
         if not service:
             return [
@@ -61,7 +63,7 @@ class DriveConnector:
             for f in files
         ]
 
-    async def rename_file(self, file_id: str, new_name: str) -> Dict[str, Any]:
+    async def rename_file(self, file_id: str, new_name: str) -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {
@@ -78,7 +80,7 @@ class DriveConnector:
         ).execute()
         return updated
 
-    async def move_file(self, file_id: str, target_folder_id: str) -> Dict[str, Any]:
+    async def move_file(self, file_id: str, target_folder_id: str) -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {
@@ -100,7 +102,7 @@ class DriveConnector:
         ).execute()
         return updated
 
-    async def create_folder(self, folder_name: str, parent_id: str = "root") -> Dict[str, Any]:
+    async def create_folder(self, folder_name: str, parent_id: str = "root") -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {

@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from googleapiclient.discovery import build
+
 from lifeos.shared.google.auth import GoogleAuthManager
 
 
@@ -19,14 +21,14 @@ class CalendarConnector:
 
     async def list_events(
         self,
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None,
+        time_min: str | None = None,
+        time_max: str | None = None,
         max_results: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         service = await self._get_service()
         if not service:
             # Return demo/mock events if credentials not yet connected
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return [
                 {
                     "id": "evt_demo_1",
@@ -48,8 +50,8 @@ class CalendarConnector:
                 }
             ]
 
-        t_min = time_min or datetime.now(timezone.utc).isoformat()
-        t_max = time_max or (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        t_min = time_min or datetime.now(UTC).isoformat()
+        t_max = time_max or (datetime.now(UTC) + timedelta(days=7)).isoformat()
 
         events_result = service.events().list(
             calendarId="primary",
@@ -79,9 +81,9 @@ class CalendarConnector:
 
     async def detect_conflicts(
         self,
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        time_min: str | None = None,
+        time_max: str | None = None
+    ) -> list[dict[str, Any]]:
         events = await self.list_events(time_min=time_min, time_max=time_max)
         conflicts = []
         for i in range(len(events)):
@@ -104,7 +106,7 @@ class CalendarConnector:
         end_time: str,
         description: str = "",
         location: str = ""
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {

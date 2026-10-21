@@ -1,17 +1,18 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from slack_sdk.web.async_client import AsyncWebClient
 
 
 class SlackConnector:
     """Manages Slack API interactions for delivering notifications and alerts."""
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         self.token = token or os.getenv("SLACK_BOT_TOKEN", "")
         self.default_channel = os.getenv("SLACK_DEFAULT_CHANNEL", "#lifeos-updates")
-        self._client: Optional[AsyncWebClient] = None
+        self._client: AsyncWebClient | None = None
 
-    def _get_client(self) -> Optional[AsyncWebClient]:
+    def _get_client(self) -> AsyncWebClient | None:
         if not self.token or self.token.startswith("xoxb-your"):
             return None
         if self._client is None:
@@ -21,9 +22,9 @@ class SlackConnector:
     async def post_message(
         self,
         text: str,
-        channel: Optional[str] = None,
-        blocks: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
+        channel: str | None = None,
+        blocks: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
         """Posts a message to a Slack channel or DM."""
         target_channel = channel or self.default_channel
         client = self._get_client()

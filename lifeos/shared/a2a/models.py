@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any, Literal, Union
+
+from pydantic import BaseModel, Field
 
 
 class TaskState(str, Enum):
@@ -25,8 +26,8 @@ class TextPart(BaseModel):
 
 class FileReference(BaseModel):
     name: str
-    uri: Optional[str] = None
-    bytes: Optional[str] = None
+    uri: str | None = None
+    bytes: str | None = None
 
 
 class FilePart(BaseModel):
@@ -37,7 +38,7 @@ class FilePart(BaseModel):
 
 class DataPart(BaseModel):
     type: Literal["data"] = "data"
-    data: Dict[str, Any]
+    data: dict[str, Any]
 
 
 Part = Union[TextPart, FilePart, DataPart]
@@ -45,57 +46,57 @@ Part = Union[TextPart, FilePart, DataPart]
 
 class Artifact(BaseModel):
     id: str = Field(default_factory=lambda: f"art_{uuid.uuid4().hex[:12]}")
-    name: Optional[str] = None
-    description: Optional[str] = None
-    parts: List[Part] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    name: str | None = None
+    description: str | None = None
+    parts: list[Part] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Message(BaseModel):
     role: Literal["user", "agent"]
     messageId: str = Field(default_factory=lambda: f"msg_{uuid.uuid4().hex}")
-    contextId: Optional[str] = None
-    taskId: Optional[str] = None
-    parts: List[Part] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    contextId: str | None = None
+    taskId: str | None = None
+    parts: list[Part] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskStatus(BaseModel):
     state: TaskState
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
-    message: Optional[Message] = None
+    message: Message | None = None
 
 
 class Task(BaseModel):
     taskId: str = Field(default_factory=lambda: f"task_{uuid.uuid4().hex}")
-    contextId: Optional[str] = None
+    contextId: str | None = None
     status: TaskStatus
-    artifacts: List[Artifact] = Field(default_factory=list)
-    history: List[Message] = Field(default_factory=list)
+    artifacts: list[Artifact] = Field(default_factory=list)
+    history: list[Message] = Field(default_factory=list)
 
 
 # --- JSON-RPC 2.0 Specifications ---
 
 class JsonRpcRequest(BaseModel):
     jsonrpc: Literal["2.0"] = "2.0"
-    id: Union[str, int]
+    id: str | int
     method: str
-    params: Dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class JsonRpcErrorDetails(BaseModel):
     code: int
     message: str
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 class JsonRpcResponse(BaseModel):
     jsonrpc: Literal["2.0"] = "2.0"
-    id: Union[str, int]
-    result: Optional[Any] = None
-    error: Optional[JsonRpcErrorDetails] = None
+    id: str | int
+    result: Any | None = None
+    error: JsonRpcErrorDetails | None = None
 
 
 # --- Agent Card Models ---
@@ -104,10 +105,10 @@ class AgentSkill(BaseModel):
     id: str
     name: str
     description: str
-    tags: List[str] = Field(default_factory=list)
-    examples: List[str] = Field(default_factory=list)
-    inputModes: List[str] = Field(default_factory=lambda: ["application/json"])
-    outputModes: List[str] = Field(default_factory=lambda: ["application/json"])
+    tags: list[str] = Field(default_factory=list)
+    examples: list[str] = Field(default_factory=list)
+    inputModes: list[str] = Field(default_factory=lambda: ["application/json"])
+    outputModes: list[str] = Field(default_factory=lambda: ["application/json"])
 
 
 class SupportedInterface(BaseModel):
@@ -128,13 +129,13 @@ class AgentCard(BaseModel):
     description: str
     version: str = "0.1.0"
     url: str
-    provider: Dict[str, str] = Field(
+    provider: dict[str, str] = Field(
         default_factory=lambda: {"organization": "LifeOS"}
     )
-    documentationUrl: Optional[str] = None
-    supportedInterfaces: List[SupportedInterface]
+    documentationUrl: str | None = None
+    supportedInterfaces: list[SupportedInterface]
     capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
-    defaultInputModes: List[str] = Field(default_factory=lambda: ["application/json"])
-    defaultOutputModes: List[str] = Field(default_factory=lambda: ["application/json"])
-    skills: List[AgentSkill] = Field(default_factory=list)
-    securitySchemes: Dict[str, Any] = Field(default_factory=dict)
+    defaultInputModes: list[str] = Field(default_factory=lambda: ["application/json"])
+    defaultOutputModes: list[str] = Field(default_factory=lambda: ["application/json"])
+    skills: list[AgentSkill] = Field(default_factory=list)
+    securitySchemes: dict[str, Any] = Field(default_factory=dict)

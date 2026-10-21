@@ -1,8 +1,10 @@
 import asyncio
-from datetime import datetime, timezone
 import logging
-from typing import Any, Callable, Coroutine, Dict, List, Optional
 import uuid
+from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from lifeos.shared.db.mongo import MongoDB
@@ -15,18 +17,18 @@ class ScheduleJob(BaseModel):
     command: str
     interval_seconds: int = 3600  # Default 1 hour
     enabled: bool = True
-    last_run_at: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    last_run_at: str | None = None
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class WorkflowScheduler:
     """Async background scheduler for recurring LifeOS natural-language operations."""
 
-    def __init__(self, executor: Optional[Callable[[str], Coroutine[Any, Any, Any]]] = None):
+    def __init__(self, executor: Callable[[str], Coroutine[Any, Any, Any]] | None = None):
         self.executor = executor
         self._running = False
-        self._task: Optional[asyncio.Task] = None
-        self._memory_jobs: Dict[str, ScheduleJob] = {}
+        self._task: asyncio.Task | None = None
+        self._memory_jobs: dict[str, ScheduleJob] = {}
 
     async def add_job(self, command: str, interval_seconds: int = 3600) -> ScheduleJob:
         job = ScheduleJob(command=command, interval_seconds=interval_seconds)
@@ -37,7 +39,7 @@ class WorkflowScheduler:
             self._memory_jobs[job.id] = job
         return job
 
-    async def list_jobs(self) -> List[ScheduleJob]:
+    async def list_jobs(self) -> list[ScheduleJob]:
         try:
             db = MongoDB.get_database()
             cursor = db.schedules.find({}, {"_id": 0})
@@ -73,7 +75,7 @@ class WorkflowScheduler:
         while self._running:
             try:
                 jobs = await self.list_jobs()
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 for job in jobs:
                     if not job.enabled:
                         continue

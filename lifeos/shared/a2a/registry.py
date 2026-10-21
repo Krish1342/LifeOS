@@ -1,6 +1,5 @@
-import asyncio
 import logging
-from typing import Dict, List, Optional
+
 import httpx
 
 from lifeos.shared.a2a.models import AgentCard
@@ -24,9 +23,9 @@ class AgentRegistry:
 
     def __init__(self, timeout: float = 3.0):
         self.timeout = timeout
-        self._agents: Dict[str, AgentRegistration] = {}
+        self._agents: dict[str, AgentRegistration] = {}
 
-    async def register(self, url: str) -> Optional[AgentCard]:
+    async def register(self, url: str) -> AgentCard | None:
         """Discovers an agent by URL, queries its agent card, and registers it."""
         clean_url = url.rstrip("/")
         card_url = f"{clean_url}/.well-known/agent-card.json"
@@ -54,13 +53,13 @@ class AgentRegistry:
         """Registers a known static agent entry."""
         self._agents[name] = AgentRegistration(name=name, url=url.rstrip("/"), card=card)
 
-    def get_agent(self, name: str) -> Optional[AgentRegistration]:
+    def get_agent(self, name: str) -> AgentRegistration | None:
         return self._agents.get(name)
 
-    def get_all(self) -> Dict[str, AgentRegistration]:
+    def get_all(self) -> dict[str, AgentRegistration]:
         return self._agents
 
-    def find_agent_for_skill(self, skill_id: str) -> Optional[AgentRegistration]:
+    def find_agent_for_skill(self, skill_id: str) -> AgentRegistration | None:
         """Finds an agent that exposes the requested skill."""
         for reg in self._agents.values():
             for skill in reg.card.skills:
@@ -68,7 +67,7 @@ class AgentRegistry:
                     return reg
         return None
 
-    async def health_check_all(self) -> Dict[str, bool]:
+    async def health_check_all(self) -> dict[str, bool]:
         """Pings health endpoints of all registered agents."""
         results = {}
         async with httpx.AsyncClient(timeout=self.timeout) as client:

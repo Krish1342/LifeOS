@@ -1,9 +1,9 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
-from lifeos.shared.m365.client import M365Connector
-from lifeos.shared.audit.viewer import PrivacyAuditTracker
 from lifeos.agents.orchestrator.main import app as orch_app
+from lifeos.shared.audit.viewer import PrivacyAuditTracker
+from lifeos.shared.m365.client import M365Connector
 
 
 @pytest.mark.asyncio

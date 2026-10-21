@@ -1,6 +1,7 @@
-from typing import Any, Dict, Optional
-import httpx
 import uuid
+from typing import Any
+
+import httpx
 
 from lifeos.shared.a2a.models import (
     AgentCard,
@@ -33,9 +34,9 @@ class A2AClient:
         self,
         agent_url: str,
         skill: str,
-        params: Dict[str, Any],
-        context_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        params: dict[str, Any],
+        context_id: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> Task:
         """
         Sends an A2A SendMessage RPC to dispatch a subtask to a domain agent.

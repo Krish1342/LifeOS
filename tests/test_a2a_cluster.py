@@ -1,10 +1,9 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from lifeos.agents.calendar.main import app as calendar_app
 from lifeos.agents.email.main import app as email_app
-from lifeos.agents.task.main import app as task_app
-from lifeos.shared.a2a.models import JsonRpcRequest, Message, DataPart, TaskState
+from lifeos.shared.a2a.models import DataPart, JsonRpcRequest, Message, TaskState
 
 
 @pytest.mark.asyncio

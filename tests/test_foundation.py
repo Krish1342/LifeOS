@@ -1,18 +1,13 @@
 import pytest
-from lifeos.shared.crypto import TokenEncryption
-from lifeos.shared.http import ScopedHTTPClient, SecurityError
-from lifeos.shared.llm import LocalLLMClient, DataSensitivity
+
 from lifeos.shared.a2a import (
     AgentCard,
-    SupportedInterface,
     AgentSkill,
-    Task,
-    TaskState,
-    TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
+    SupportedInterface,
 )
+from lifeos.shared.crypto import TokenEncryption
+from lifeos.shared.http import ScopedHTTPClient, SecurityError
+from lifeos.shared.llm import DataSensitivity, LocalLLMClient
 
 
 def test_token_encryption_roundtrip():

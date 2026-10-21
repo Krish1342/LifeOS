@@ -1,13 +1,13 @@
-import os
-import sys
 import subprocess
+import sys
 import time
 import webbrowser
+
 import click
 import httpx
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 console = Console()
 
@@ -24,13 +24,13 @@ AGENTS = [
 @click.group()
 def cli():
     """LifeOS - Personal AI Operations Layer."""
-    pass
 
 
 @cli.command()
 def doctor():
     """Run system diagnostics across all LifeOS subsystems."""
     import asyncio
+
     from lifeos.cli.doctor import run_diagnostics
     asyncio.run(run_diagnostics())
 
@@ -176,6 +176,174 @@ def run(command_text: str, yes: bool):
             console.print_json(data=data.get("results"))
     except Exception as e:
         console.print(f"[red]Execution failed: {e}[/red]")
+
+
+@cli.group()
+def tasks():
+    """Manage LifeOS task board."""
+
+
+@tasks.command("list")
+def list_tasks():
+    """List all open and completed tasks."""
+    url = "http://127.0.0.1:8000/api/tasks"
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        items = resp.json()
+        if not items:
+            console.print("No tasks found.")
+            return
+
+        table = Table(title="Tasks")
+        table.add_column("ID", style="dim")
+        table.add_column("Status")
+        table.add_column("Priority")
+        table.add_column("Title", style="bold")
+        table.add_column("Due Date")
+
+        for t in items:
+            status_style = "green" if t.get("status") == "completed" else "yellow"
+            status_str = f"[{status_style}]{t.get('status', 'open')}[/{status_style}]"
+            table.add_row(
+                str(t.get("id", ""))[:8],
+                status_str,
+                t.get("priority", "medium"),
+                t.get("title", ""),
+                t.get("due_date", "None"),
+            )
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error fetching tasks: {e}[/red]")
+
+
+@tasks.command("toggle")
+@click.argument("task_id")
+def toggle_task(task_id: str):
+    """Toggle a task status between open and completed."""
+    url = f"http://127.0.0.1:8000/api/tasks/{task_id}/toggle"
+    try:
+        resp = httpx.post(url, timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        console.print(f"Task updated. Status: {data.get('status')}")
+    except Exception as e:
+        console.print(f"[red]Error toggling task: {e}[/red]")
+
+
+@cli.group()
+def schedule():
+    """Manage automated recurring workflows."""
+
+
+@schedule.command("list")
+def list_schedules():
+    """List active scheduled jobs."""
+    url = "http://127.0.0.1:8000/api/schedules"
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        items = resp.json()
+        if not items:
+            console.print("No active schedules.")
+            return
+
+        table = Table(title="Schedules")
+        table.add_column("ID", style="dim")
+        table.add_column("Command", style="bold")
+        table.add_column("Interval (s)")
+        table.add_column("Active")
+        table.add_column("Runs")
+        table.add_column("Last Run")
+
+        for s in items:
+            active_str = "[green]yes[/green]" if s.get("is_active") else "[red]no[/red]"
+            table.add_row(
+                s.get("id", "")[:8],
+                s.get("command", ""),
+                str(s.get("interval_seconds", 0)),
+                active_str,
+                str(s.get("total_runs", 0)),
+                str(s.get("last_run", "Never")),
+            )
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error fetching schedules: {e}[/red]")
+
+
+@schedule.command("add")
+@click.argument("command_text")
+@click.option("--interval", "-i", type=int, default=3600, help="Interval in seconds (default: 3600)")
+def add_schedule(command_text: str, interval: int):
+    """Add a recurring scheduled command."""
+    url = "http://127.0.0.1:8000/api/schedules"
+    try:
+        resp = httpx.post(url, json={"command": command_text, "interval_seconds": interval}, timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        console.print(f"Schedule registered. ID: {data.get('id')}")
+    except Exception as e:
+        console.print(f"[red]Error creating schedule: {e}[/red]")
+
+
+@schedule.command("remove")
+@click.argument("schedule_id")
+def remove_schedule(schedule_id: str):
+    """Remove a recurring scheduled command."""
+    url = f"http://127.0.0.1:8000/api/schedules/{schedule_id}"
+    try:
+        resp = httpx.delete(url, timeout=5.0)
+        resp.raise_for_status()
+        console.print(f"Schedule {schedule_id} removed.")
+    except Exception as e:
+        console.print(f"[red]Error deleting schedule: {e}[/red]")
+
+
+@cli.command()
+def audit():
+    """Inspect privacy audit logs and leak-detection metrics."""
+    url = "http://127.0.0.1:8000/api/audit"
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        table = Table(title="Privacy Audit Log")
+        table.add_column("Timestamp", style="dim")
+        table.add_column("Event")
+        table.add_column("Agent")
+        table.add_column("Destination")
+        table.add_column("Status")
+
+        for row in data.get("logs", []):
+            table.add_row(
+                str(row.get("timestamp", ""))[:19],
+                row.get("event", ""),
+                row.get("agent", ""),
+                row.get("destination", "local"),
+                row.get("status", "ok"),
+            )
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error fetching audit log: {e}[/red]")
+
+
+@cli.command()
+def privacy():
+    """View outbound network privacy status and cloud compliance."""
+    url = "http://127.0.0.1:8000/api/privacy/status"
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        console.print(Panel(
+            f"Cloud LLM Requests Blocked: {data.get('cloud_llm_requests_blocked', 0)}\n"
+            f"Third-Party Transmissions: {data.get('third_party_transmissions', 0)}\n"
+            f"Local Ollama Executions: {data.get('local_ollama_executions', 0)}\n"
+            f"Zero-Leakage Compliance: {data.get('compliance_rate', '100%')}",
+            title="Privacy Compliance Status"
+        ))
+    except Exception as e:
+        console.print(f"[red]Error fetching privacy status: {e}[/red]")
 
 
 if __name__ == "__main__":

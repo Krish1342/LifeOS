@@ -1,7 +1,7 @@
-import os
-from typing import Any, Dict, List, Optional
-from lifeos.shared.http.client import ScopedHTTPClient
+from typing import Any
+
 from lifeos.shared.db.tokens import TokenStore
+from lifeos.shared.http.client import ScopedHTTPClient
 
 M365_SCOPES = [
     "https://graph.microsoft.com/Calendars.ReadWrite",
@@ -21,7 +21,7 @@ class M365Connector:
         self.token_store = TokenStore(allowed_service="m365_outlook")
         self.http_client = ScopedHTTPClient(allowed_hosts=["graph.microsoft.com", "login.microsoftonline.com"])
 
-    async def list_calendar_events(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_calendar_events(self, start_date: str | None = None, end_date: str | None = None) -> list[dict[str, Any]]:
         """Queries calendar events from Outlook."""
         creds = await self.token_store.get_credentials(self.user_id, "m365_outlook")
         if not creds:
@@ -53,7 +53,7 @@ class M365Connector:
             for item in items
         ]
 
-    async def list_messages(self, max_results: int = 10) -> List[Dict[str, Any]]:
+    async def list_messages(self, max_results: int = 10) -> list[dict[str, Any]]:
         """Queries messages from Outlook inbox."""
         creds = await self.token_store.get_credentials(self.user_id, "m365_outlook")
         if not creds:

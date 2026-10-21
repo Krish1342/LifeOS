@@ -1,10 +1,10 @@
 import asyncio
-from datetime import datetime, timezone, timedelta
 import json
-import os
 import uuid
-from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Request
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -12,22 +12,17 @@ from lifeos.shared.a2a import (
     A2AAgentApp,
     A2AClient,
     AgentCard,
+    AgentRegistry,
     AgentSkill,
-    SupportedInterface,
-    Task,
-    TaskState,
-    TaskStatus,
-    Artifact,
     DataPart,
     Message,
-    AgentRegistry,
+    SupportedInterface,
 )
-from lifeos.shared.llm import LocalLLMClient, DataSensitivity
-from lifeos.shared.db.mongo import MongoDB
-from lifeos.shared.google.auth import GoogleAuthManager
-from lifeos.shared.scheduler import WorkflowScheduler, ScheduleJob
 from lifeos.shared.audit import PrivacyAuditTracker
+from lifeos.shared.google.auth import GoogleAuthManager
 from lifeos.shared.http import RateLimitMiddleware
+from lifeos.shared.llm import LocalLLMClient
+from lifeos.shared.scheduler import WorkflowScheduler
 from lifeos.web import DASHBOARD_HTML
 
 card = AgentCard(
@@ -67,19 +62,19 @@ async def _scheduled_executor(cmd: str):
 scheduler = WorkflowScheduler(executor=_scheduled_executor)
 
 # In-memory store for pending write confirmations
-PENDING_CONFIRMATIONS: Dict[str, Dict[str, Any]] = {}
+PENDING_CONFIRMATIONS: dict[str, dict[str, Any]] = {}
 
 
 class CommandRequest(BaseModel):
     command: str
-    user_id: Optional[str] = "default_user"
-    auto_confirm: Optional[bool] = False
+    user_id: str | None = "default_user"
+    auto_confirm: bool | None = False
 
 
 class ConfirmationRequest(BaseModel):
     confirmation_id: str
     approved: bool
-    user_id: Optional[str] = "default_user"
+    user_id: str | None = "default_user"
 
 
 @agent_app.app.get("/oauth/connect/{service}")
@@ -107,7 +102,7 @@ async def oauth_callback(code: str, state: str):
     }
 
 
-async def _dispatch_agent(agent_name: str, skill: str, params: dict, context_id: str, user_id: str) -> Dict[str, Any]:
+async def _dispatch_agent(agent_name: str, skill: str, params: dict, context_id: str, user_id: str) -> dict[str, Any]:
     reg = agent_registry.get_agent(agent_name)
     agent_url = reg.url if reg else DOMAIN_AGENTS.get(agent_name, "")
     try:
@@ -125,8 +120,8 @@ async def _dispatch_agent(agent_name: str, skill: str, params: dict, context_id:
             from lifeos.agents.calendar.main import agent as cal_agent
             from lifeos.agents.email.main import agent as email_agent
             from lifeos.agents.file.main import agent as file_agent
-            from lifeos.agents.task.main import agent as task_agent
             from lifeos.agents.notification.main import agent as notif_agent
+            from lifeos.agents.task.main import agent as task_agent
 
             in_process_registry = {
                 "calendar": cal_agent,
@@ -163,7 +158,7 @@ async def execute_user_command(req: CommandRequest):
     run_id = f"run_{uuid.uuid4().hex[:12]}"
     cmd = req.command.strip()
     cmd_lower = cmd.lower()
-    start_time = datetime.now(timezone.utc)
+    start_time = datetime.now(UTC)
     user_id = req.user_id or "default_user"
 
     # --- Story 1: "Summarize my week" ---
@@ -189,7 +184,7 @@ async def execute_user_command(req: CommandRequest):
         )
 
         briefing = [
-            f"Weekly Summary:",
+            "Weekly Summary:",
             f"- Calendar: {len(events)} events scheduled.",
             f"- Inbox: {email_summary}",
             f"- Tasks: {len(tasks)} open tasks."
@@ -293,7 +288,7 @@ async def execute_user_command(req: CommandRequest):
 
     # --- Story 4: "Block focus time tomorrow" ---
     elif any(k in cmd_lower for k in ["focus time", "block focus", "schedule focus", "time block"]):
-        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+        tomorrow = datetime.now(UTC) + timedelta(days=1)
         start_slot = tomorrow.replace(hour=9, minute=0, second=0).isoformat()
         end_slot = tomorrow.replace(hour=11, minute=0, second=0).isoformat()
 
@@ -316,7 +311,7 @@ async def execute_user_command(req: CommandRequest):
             return {
                 "status": "confirmation_required",
                 "confirmation_id": conf_id,
-                "prompt": f"Found open morning slot for 2-hour focus block tomorrow. Approve calendar reservation?",
+                "prompt": "Found open morning slot for 2-hour focus block tomorrow. Approve calendar reservation?",
                 "pending_actions": [proposed_event]
             }
 
@@ -334,10 +329,12 @@ async def execute_user_command(req: CommandRequest):
             _dispatch_agent("calendar", "list_events", {}, context_id, user_id),
             _dispatch_agent("task", "list_open_tasks", {}, context_id, user_id)
         )
+        duration_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
         return {
             "status": "completed",
             "run_id": run_id,
             "context_id": context_id,
+            "duration_ms": duration_ms,
             "briefing": f"Processed general inquiry '{cmd}'. Retrieved calendar and task context.",
             "results": {"calendar": cal_res, "task": task_res}
         }

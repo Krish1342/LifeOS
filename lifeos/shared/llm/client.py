@@ -1,7 +1,9 @@
 import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
+
 from lifeos.shared.http.client import SecurityError
 
 
@@ -19,9 +21,9 @@ class LocalLLMClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        default_model: Optional[str] = None,
-        fallback_model: Optional[str] = None
+        base_url: str | None = None,
+        default_model: str | None = None,
+        fallback_model: str | None = None
     ):
         self.base_url = (base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.default_model = default_model or os.getenv("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_K_M")
@@ -30,11 +32,11 @@ class LocalLLMClient:
     async def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         sensitivity: DataSensitivity = DataSensitivity.PRIVATE,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.2
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Executes an LLM completion.
         Guarantees private data is only processed locally on localhost Ollama.
@@ -91,5 +93,5 @@ class LocalLLMClient:
                     except Exception:
                         pass
                 raise RuntimeError(
-                    f"Local LLM service unavailable at {self.base_url}. Ensure Ollama is running (`ollama serve`). Error: {str(e)}"
+                    f"Local LLM service unavailable at {self.base_url}. Ensure Ollama is running (`ollama serve`). Error: {e!s}"
                 ) from e

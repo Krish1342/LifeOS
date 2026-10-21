@@ -1,18 +1,19 @@
-from typing import Any, Dict
+from typing import Any
+
 from lifeos.shared.a2a import (
     A2AAgentApp,
     AgentCard,
     AgentSkill,
+    Artifact,
+    DataPart,
+    Message,
     SupportedInterface,
     Task,
     TaskState,
     TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
 )
-from lifeos.shared.http import ScopedHTTPClient
 from lifeos.shared.google.drive import DriveConnector
+from lifeos.shared.http import ScopedHTTPClient
 
 # Per-agent outbound security boundary: File Agent can ONLY contact Google Drive APIs
 http_client = ScopedHTTPClient(allowed_hosts=["www.googleapis.com"])
@@ -40,7 +41,7 @@ agent = A2AAgentApp(card)
 connector = DriveConnector()
 
 
-async def handle_list_files(params: Dict[str, Any], message: Message) -> Task:
+async def handle_list_files(params: dict[str, Any], message: Message) -> Task:
     folder_id = params.get("folder_id", "root")
     max_results = params.get("max_results", 20)
     files = await connector.list_files(folder_id=folder_id, max_results=max_results)
@@ -65,7 +66,7 @@ async def handle_list_files(params: Dict[str, Any], message: Message) -> Task:
     )
 
 
-async def handle_rename_file(params: Dict[str, Any], message: Message) -> Task:
+async def handle_rename_file(params: dict[str, Any], message: Message) -> Task:
     file_id = params.get("file_id")
     new_name = params.get("new_name")
     res = await connector.rename_file(file_id=file_id, new_name=new_name)
@@ -82,7 +83,7 @@ async def handle_rename_file(params: Dict[str, Any], message: Message) -> Task:
     )
 
 
-async def handle_create_folder(params: Dict[str, Any], message: Message) -> Task:
+async def handle_create_folder(params: dict[str, Any], message: Message) -> Task:
     folder_name = params.get("folder_name")
     parent_id = params.get("parent_id", "root")
     folder = await connector.create_folder(folder_name=folder_name, parent_id=parent_id)

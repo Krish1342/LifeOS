@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from lifeos.shared.db.mongo import MongoDB
 
 
@@ -10,7 +10,7 @@ class PrivacyAuditTracker:
     """
 
     @staticmethod
-    async def get_recent_runs(limit: int = 50, user_id: str = "default_user") -> List[Dict[str, Any]]:
+    async def get_recent_runs(limit: int = 50, user_id: str = "default_user") -> list[dict[str, Any]]:
         """Retrieves recent agent runs from MongoDB."""
         try:
             db = MongoDB.get_database()
@@ -20,7 +20,7 @@ class PrivacyAuditTracker:
             return []
 
     @staticmethod
-    async def get_privacy_metrics(user_id: str = "default_user") -> Dict[str, Any]:
+    async def get_privacy_metrics(user_id: str = "default_user") -> dict[str, Any]:
         """
         Computes privacy metrics across all recorded agent runs:
         - Total runs executed

@@ -1,13 +1,13 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
-from lifeos.shared.google.calendar import CalendarConnector
-from lifeos.shared.google.gmail import GmailConnector
-from lifeos.shared.google.drive import DriveConnector
-from lifeos.shared.db.tokens import TokenStore
-from lifeos.shared.http.client import SecurityError
 from lifeos.agents.task.main import app as task_app
-from lifeos.shared.a2a.models import JsonRpcRequest, Message, DataPart, TaskState
+from lifeos.shared.a2a.models import DataPart, JsonRpcRequest, Message, TaskState
+from lifeos.shared.db.tokens import TokenStore
+from lifeos.shared.google.calendar import CalendarConnector
+from lifeos.shared.google.drive import DriveConnector
+from lifeos.shared.google.gmail import GmailConnector
+from lifeos.shared.http.client import SecurityError
 
 
 @pytest.mark.asyncio

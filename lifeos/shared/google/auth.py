@@ -1,10 +1,11 @@
 import os
-from typing import Dict, List, Optional
-from google.oauth2.credentials import Credentials
+
 from google_auth_oauthlib.flow import Flow
+
+from google.oauth2.credentials import Credentials
 from lifeos.shared.db.tokens import TokenStore
 
-SCOPES_BY_SERVICE: Dict[str, List[str]] = {
+SCOPES_BY_SERVICE: dict[str, list[str]] = {
     "google_calendar": [
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/calendar.events"
@@ -81,7 +82,7 @@ class GoogleAuthManager:
         )
         return credentials
 
-    async def get_credentials(self, user_id: str = "default_user") -> Optional[Credentials]:
+    async def get_credentials(self, user_id: str = "default_user") -> Credentials | None:
         """Loads credentials from MongoDB and prepares a Google Credentials object."""
         token_data = await self.token_store.get_credentials(user_id, self.service_name)
         if not token_data or not token_data.get("access_token"):

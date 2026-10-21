@@ -1,10 +1,10 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
+from lifeos.agents.orchestrator.main import app as orch_app
 from lifeos.shared.a2a.models import AgentCard, AgentSkill, SupportedInterface
 from lifeos.shared.a2a.registry import AgentRegistry
 from lifeos.shared.scheduler.engine import WorkflowScheduler
-from lifeos.agents.orchestrator.main import app as orch_app
 
 
 @pytest.mark.asyncio

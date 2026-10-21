@@ -32,6 +32,19 @@ dev = [
 [project.scripts]
 lifeos = "lifeos.cli.main:cli"
 
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "BLE001",  # Allow catching blind Exception for offline network/DB fallbacks
+    "S110",    # Allow try-except-pass in fallback attempts
+    "SIM102",  # Nested if statements
+    "UP007",   # Union type syntax
+    "S104",    # Binding to 0.0.0.0
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

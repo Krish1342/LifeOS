@@ -1,3 +1,3 @@
-from lifeos.shared.llm.client import LocalLLMClient, DataSensitivity
+from lifeos.shared.llm.client import DataSensitivity, LocalLLMClient
 
-__all__ = ["LocalLLMClient", "DataSensitivity"]
+__all__ = ["DataSensitivity", "LocalLLMClient"]

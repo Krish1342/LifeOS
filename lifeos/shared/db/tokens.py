@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from datetime import UTC, datetime
+from typing import Any
+
 from lifeos.shared.crypto.encryption import TokenEncryption
 from lifeos.shared.db.mongo import MongoDB
 from lifeos.shared.http.client import SecurityError
@@ -11,10 +12,10 @@ class TokenStore:
     Enforces per-agent scoping: agents can only read tokens for their declared service.
     """
 
-    def __init__(self, allowed_service: Optional[str] = None):
+    def __init__(self, allowed_service: str | None = None):
         self.allowed_service = allowed_service
         self.crypto = TokenEncryption()
-        self._memory_tokens: Dict[str, Dict[str, Any]] = {}
+        self._memory_tokens: dict[str, dict[str, Any]] = {}
 
     def _verify_service(self, service: str) -> None:
         if self.allowed_service and self.allowed_service != service:
@@ -27,9 +28,9 @@ class TokenStore:
         user_id: str,
         service: str,
         access_token: str,
-        refresh_token: Optional[str],
-        scopes: List[str],
-        expires_at: Optional[datetime] = None
+        refresh_token: str | None,
+        scopes: list[str],
+        expires_at: datetime | None = None
     ) -> None:
         """Encrypts tokens and stores or updates them in the oauth_tokens collection."""
         self._verify_service(service)
@@ -43,8 +44,8 @@ class TokenStore:
             "refresh_token": encrypted_refresh,
             "token_type": "Bearer",
             "scopes": scopes,
-            "expires_at": expires_at or datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "expires_at": expires_at or datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         try:
@@ -53,14 +54,14 @@ class TokenStore:
                 {"user_id": user_id, "service": service},
                 {
                     "$set": doc,
-                    "$setOnInsert": {"created_at": datetime.now(timezone.utc)}
+                    "$setOnInsert": {"created_at": datetime.now(UTC)}
                 },
                 upsert=True
             )
         except Exception:
             self._memory_tokens[f"{user_id}:{service}"] = doc
 
-    async def get_credentials(self, user_id: str, service: str) -> Optional[Dict[str, Any]]:
+    async def get_credentials(self, user_id: str, service: str) -> dict[str, Any] | None:
         """
         Retrieves and decrypts credentials for a given user and service.
         Returns a dict with plaintext access_token and refresh_token.

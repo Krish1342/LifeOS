@@ -1,22 +1,22 @@
-from typing import Any, Callable, Coroutine, Dict, Optional
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
 import logging
+from collections.abc import Callable, Coroutine
+from typing import Any
+
+from fastapi import FastAPI
 
 from lifeos.shared.a2a.models import (
     AgentCard,
+    JsonRpcErrorDetails,
     JsonRpcRequest,
     JsonRpcResponse,
-    JsonRpcErrorDetails,
+    Message,
     Task,
     TaskState,
-    TaskStatus,
-    Message,
 )
 
 logger = logging.getLogger("a2a.server")
 
-SkillHandler = Callable[[Dict[str, Any], Message], Coroutine[Any, Any, Task]]
+SkillHandler = Callable[[dict[str, Any], Message], Coroutine[Any, Any, Task]]
 
 
 class A2AAgentApp:
@@ -32,8 +32,8 @@ class A2AAgentApp:
             description=agent_card.description,
             version=agent_card.version,
         )
-        self.skills: Dict[str, SkillHandler] = {}
-        self.tasks: Dict[str, Task] = {}
+        self.skills: dict[str, SkillHandler] = {}
+        self.tasks: dict[str, Task] = {}
 
         self._register_routes()
 
@@ -86,7 +86,7 @@ class A2AAgentApp:
                     )
                 )
 
-    async def _handle_send_message(self, req_id: Any, params: Dict[str, Any]) -> JsonRpcResponse:
+    async def _handle_send_message(self, req_id: Any, params: dict[str, Any]) -> JsonRpcResponse:
         message_data = params.get("message", {})
         if not message_data:
             return JsonRpcResponse(
@@ -137,7 +137,7 @@ class A2AAgentApp:
             result=task_result.model_dump(exclude_none=True)
         )
 
-    def _handle_get_task(self, req_id: Any, params: Dict[str, Any]) -> JsonRpcResponse:
+    def _handle_get_task(self, req_id: Any, params: dict[str, Any]) -> JsonRpcResponse:
         task_id = params.get("taskId")
         if not task_id or task_id not in self.tasks:
             return JsonRpcResponse(
@@ -153,7 +153,7 @@ class A2AAgentApp:
             result=self.tasks[task_id].model_dump(exclude_none=True)
         )
 
-    def _handle_cancel_task(self, req_id: Any, params: Dict[str, Any]) -> JsonRpcResponse:
+    def _handle_cancel_task(self, req_id: Any, params: dict[str, Any]) -> JsonRpcResponse:
         task_id = params.get("taskId")
         if not task_id or task_id not in self.tasks:
             return JsonRpcResponse(

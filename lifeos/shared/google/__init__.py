@@ -1,12 +1,12 @@
-from lifeos.shared.google.auth import GoogleAuthManager, SCOPES_BY_SERVICE
+from lifeos.shared.google.auth import SCOPES_BY_SERVICE, GoogleAuthManager
 from lifeos.shared.google.calendar import CalendarConnector
-from lifeos.shared.google.gmail import GmailConnector
 from lifeos.shared.google.drive import DriveConnector
+from lifeos.shared.google.gmail import GmailConnector
 
 __all__ = [
-    "GoogleAuthManager",
     "SCOPES_BY_SERVICE",
     "CalendarConnector",
+    "DriveConnector",
     "GmailConnector",
-    "DriveConnector"
+    "GoogleAuthManager"
 ]

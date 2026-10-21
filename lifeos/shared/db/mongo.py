@@ -1,9 +1,9 @@
 import asyncio
-import os
-from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-import pymongo
 import logging
+import os
+
+import pymongo
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 logger = logging.getLogger("lifeos.db")
 
@@ -11,9 +11,9 @@ logger = logging.getLogger("lifeos.db")
 class MongoDB:
     """Async MongoDB client wrapper with automatic indexing and connection management."""
 
-    _client: Optional[AsyncIOMotorClient] = None
-    _db: Optional[AsyncIOMotorDatabase] = None
-    _loop: Optional[asyncio.AbstractEventLoop] = None
+    _client: AsyncIOMotorClient | None = None
+    _db: AsyncIOMotorDatabase | None = None
+    _loop: asyncio.AbstractEventLoop | None = None
 
     @classmethod
     def get_uri(cls) -> str:

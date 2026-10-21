@@ -1,19 +1,20 @@
-from typing import Any, Dict
+from typing import Any
+
 from lifeos.shared.a2a import (
     A2AAgentApp,
     AgentCard,
     AgentSkill,
+    Artifact,
+    DataPart,
+    Message,
     SupportedInterface,
     Task,
     TaskState,
     TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
 )
-from lifeos.shared.http import ScopedHTTPClient
 from lifeos.shared.google.gmail import GmailConnector
-from lifeos.shared.llm import LocalLLMClient, DataSensitivity
+from lifeos.shared.http import ScopedHTTPClient
+from lifeos.shared.llm import DataSensitivity, LocalLLMClient
 
 # Per-agent outbound security boundary: Email Agent can ONLY contact Google APIs
 http_client = ScopedHTTPClient(allowed_hosts=["www.googleapis.com"])
@@ -41,7 +42,7 @@ connector = GmailConnector()
 llm = LocalLLMClient()
 
 
-async def handle_summarize_inbox(params: Dict[str, Any], message: Message) -> Task:
+async def handle_summarize_inbox(params: dict[str, Any], message: Message) -> Task:
     query = params.get("query", "is:unread")
     messages = await connector.list_messages(query=query)
 
@@ -89,7 +90,7 @@ async def handle_summarize_inbox(params: Dict[str, Any], message: Message) -> Ta
     )
 
 
-async def handle_extract_action_items(params: Dict[str, Any], message: Message) -> Task:
+async def handle_extract_action_items(params: dict[str, Any], message: Message) -> Task:
     query = params.get("query", "is:unread")
     messages = await connector.list_messages(query=query)
     action_items = []
@@ -124,7 +125,7 @@ async def handle_extract_action_items(params: Dict[str, Any], message: Message) 
     )
 
 
-async def handle_draft_reply(params: Dict[str, Any], message: Message) -> Task:
+async def handle_draft_reply(params: dict[str, Any], message: Message) -> Task:
     to = params.get("to")
     subject = params.get("subject", "Re: Follow up")
     body = params.get("body", "Thank you for the update. I have reviewed this and will proceed.")

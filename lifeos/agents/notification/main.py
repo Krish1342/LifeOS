@@ -1,15 +1,16 @@
-from typing import Any, Dict
+from typing import Any
+
 from lifeos.shared.a2a import (
     A2AAgentApp,
     AgentCard,
     AgentSkill,
+    Artifact,
+    DataPart,
+    Message,
     SupportedInterface,
     Task,
     TaskState,
     TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
 )
 from lifeos.shared.http import ScopedHTTPClient
 from lifeos.shared.slack.client import SlackConnector
@@ -36,7 +37,7 @@ agent = A2AAgentApp(card)
 slack_connector = SlackConnector()
 
 
-async def handle_send_slack(params: Dict[str, Any], message: Message) -> Task:
+async def handle_send_slack(params: dict[str, Any], message: Message) -> Task:
     channel = params.get("channel")
     text = params.get("message", "")
     blocks = params.get("blocks")

@@ -1,11 +1,11 @@
-import httpx
+from typing import Any
 from urllib.parse import urlparse
-from typing import Any, List, Optional
+
+import httpx
 
 
 class SecurityError(Exception):
     """Raised when an outbound HTTP request violates sandbox boundary constraints."""
-    pass
 
 
 class ScopedHTTPClient:
@@ -16,14 +16,14 @@ class ScopedHTTPClient:
 
     def __init__(
         self,
-        allowed_hosts: List[str],
+        allowed_hosts: list[str],
         timeout: float = 30.0,
-        headers: Optional[dict] = None
+        headers: dict | None = None
     ):
         self.allowed_hosts = [h.lower() for h in allowed_hosts]
         self.timeout = timeout
         self.headers = headers or {}
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:

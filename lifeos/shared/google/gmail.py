@@ -1,7 +1,9 @@
 import base64
 from email.message import EmailMessage
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from googleapiclient.discovery import build
+
 from lifeos.shared.google.auth import GoogleAuthManager
 
 
@@ -18,7 +20,7 @@ class GmailConnector:
             return None
         return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
-    async def list_messages(self, query: str = "is:unread", max_results: int = 10) -> List[Dict[str, Any]]:
+    async def list_messages(self, query: str = "is:unread", max_results: int = 10) -> list[dict[str, Any]]:
         service = await self._get_service()
         if not service:
             return [
@@ -77,8 +79,8 @@ class GmailConnector:
         to: str,
         subject: str,
         body: str,
-        thread_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        thread_id: str | None = None
+    ) -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {
@@ -111,8 +113,8 @@ class GmailConnector:
         to: str,
         subject: str,
         body: str,
-        thread_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        thread_id: str | None = None
+    ) -> dict[str, Any]:
         service = await self._get_service()
         if not service:
             return {

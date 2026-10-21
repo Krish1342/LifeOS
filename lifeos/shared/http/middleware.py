@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Tuple
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -15,7 +15,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self._clients: Dict[str, Tuple[int, float]] = {}  # ip -> (count, window_start)
+        self._clients: dict[str, tuple[int, float]] = {}  # ip -> (count, window_start)
 
     def _is_rate_limited(self, ip: str) -> bool:
         now = time.time()

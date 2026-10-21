@@ -1,18 +1,19 @@
-from typing import Any, Dict
+from typing import Any
+
 from lifeos.shared.a2a import (
     A2AAgentApp,
     AgentCard,
     AgentSkill,
+    Artifact,
+    DataPart,
+    Message,
     SupportedInterface,
     Task,
     TaskState,
     TaskStatus,
-    Artifact,
-    DataPart,
-    Message,
 )
-from lifeos.shared.http import ScopedHTTPClient
 from lifeos.shared.google.calendar import CalendarConnector
+from lifeos.shared.http import ScopedHTTPClient
 
 # Per-agent outbound security boundary: Calendar Agent can ONLY contact Google APIs
 http_client = ScopedHTTPClient(allowed_hosts=["www.googleapis.com"])
@@ -40,7 +41,7 @@ agent = A2AAgentApp(card)
 connector = CalendarConnector()
 
 
-async def handle_list_events(params: Dict[str, Any], message: Message) -> Task:
+async def handle_list_events(params: dict[str, Any], message: Message) -> Task:
     start_date = params.get("start_date")
     end_date = params.get("end_date")
     events = await connector.list_events(time_min=start_date, time_max=end_date)
@@ -66,7 +67,7 @@ async def handle_list_events(params: Dict[str, Any], message: Message) -> Task:
     )
 
 
-async def handle_create_event(params: Dict[str, Any], message: Message) -> Task:
+async def handle_create_event(params: dict[str, Any], message: Message) -> Task:
     summary = params.get("summary", "New LifeOS Event")
     start = params.get("start")
     end = params.get("end")
