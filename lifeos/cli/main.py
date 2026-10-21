@@ -28,6 +28,14 @@ def cli():
 
 
 @cli.command()
+def doctor():
+    """Run system diagnostics across all LifeOS subsystems."""
+    import asyncio
+    from lifeos.cli.doctor import run_diagnostics
+    asyncio.run(run_diagnostics())
+
+
+@cli.command()
 def keygen():
     """Generate a secure 32-byte AES-256-GCM encryption key."""
     from lifeos.shared.crypto import TokenEncryption

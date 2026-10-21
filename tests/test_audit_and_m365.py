@@ -43,3 +43,11 @@ async def test_orchestrator_audit_and_privacy_endpoints():
         assert priv_resp.status_code == 200
         data = priv_resp.json()
         assert data["compliance_status"] == "100% compliant"
+
+
+@pytest.mark.asyncio
+async def test_doctor_diagnostics():
+    from lifeos.cli.doctor import run_diagnostics
+    # run_diagnostics must execute without unhandled exceptions
+    result = await run_diagnostics()
+    assert isinstance(result, bool)
