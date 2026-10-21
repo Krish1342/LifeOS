@@ -373,13 +373,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     <header>
         <div class="brand">lifeos</div>
-        <div class="service-badges">
-            <span class="badge online">calendar</span>
-            <span class="badge online">gmail</span>
-            <span class="badge online">drive</span>
-            <span class="badge online">slack</span>
-            <span class="badge online">mongodb</span>
-            <span class="badge online">ollama</span>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="service-badges">
+                <span class="badge online">calendar</span>
+                <span class="badge online">gmail</span>
+                <span class="badge online">drive</span>
+                <span class="badge online">slack</span>
+                <span class="badge online">mongodb</span>
+                <span class="badge online">ollama</span>
+            </div>
+            <div id="authContainer"></div>
         </div>
     </header>
 
@@ -607,7 +610,51 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             loadTasks();
         }
 
-        window.onload = loadTasks;
+        async function initAuth() {
+            try {
+                const resp = await fetch('/api/auth/config');
+                const cfg = await resp.json();
+                const container = document.getElementById('authContainer');
+                if (!container) return;
+
+                if (cfg.clerk_configured && cfg.clerk_publishable_key) {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js';
+                    script.async = true;
+                    script.crossOrigin = 'anonymous';
+                    script.onload = async () => {
+                        const clerk = new window.Clerk(cfg.clerk_publishable_key);
+                        await clerk.load();
+                        if (clerk.user) {
+                            clerk.mountUserButton(container);
+                            fetch('/api/auth/clerk/sync-tokens', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user_id: clerk.user.id, provider: 'oauth_google' })
+                            }).catch(() => {});
+                        } else {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn-primary';
+                            btn.style.padding = '0.2rem 0.6rem';
+                            btn.style.fontSize = '0.75rem';
+                            btn.innerText = 'Sign In';
+                            btn.onclick = () => clerk.openSignIn();
+                            container.appendChild(btn);
+                        }
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    container.innerHTML = '<span class="badge" style="color: var(--text-muted); font-size: 0.7rem;">Free Tier</span>';
+                }
+            } catch (err) {
+                // Ignore in local offline mode
+            }
+        }
+
+        window.onload = () => {
+            loadTasks();
+            initAuth();
+        };
     </script>
 </body>
 </html>

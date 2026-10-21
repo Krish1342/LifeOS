@@ -83,8 +83,17 @@ class GoogleAuthManager:
         return credentials
 
     async def get_credentials(self, user_id: str = "default_user") -> Credentials | None:
-        """Loads credentials from MongoDB and prepares a Google Credentials object."""
+        """Loads credentials from MongoDB, syncing from Clerk if configured and absent."""
         token_data = await self.token_store.get_credentials(user_id, self.service_name)
+        if not token_data or not token_data.get("access_token"):
+            # Attempt sync from Clerk if configured
+            from lifeos.shared.auth.clerk import ClerkAuthManager
+            clerk = ClerkAuthManager()
+            if clerk.is_configured:
+                synced = await clerk.sync_tokens_to_db(user_id=user_id, provider="oauth_google")
+                if synced:
+                    token_data = await self.token_store.get_credentials(user_id, self.service_name)
+
         if not token_data or not token_data.get("access_token"):
             return None
 

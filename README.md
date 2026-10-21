@@ -14,12 +14,14 @@ LifeOS uses a multi-agent spin-off pattern:
 
 All inter-agent communication uses Google's **A2A protocol** (JSON-RPC 2.0).
 
-## Security Constraints
-- **Zero private user data to cloud LLMs**: All private email bodies, event details, and file metadata are processed locally using Ollama (`llama3.1:8b-instruct-q4_K_M` or `phi3:mini`).
+## Security & Zero-Cost Architecture
+- **Zero private user data to cloud LLMs**: All private email bodies, event details, and file metadata are processed locally using Ollama (`llama3.1:8b-instruct-q4_K_M` or `phi3:mini`). Zero cloud AI bills.
+- **Authentication & OAuth via Clerk**: Uses Clerk Free Tier (10,000 monthly active users, no credit card required) for session JWT validation and external Google/Microsoft OAuth token synchronization.
+- **Database**: MongoDB Atlas M0 Free Tier (512 MB, 500 connections, no credit card required, no inactivity auto-pausing) or local MongoDB instance.
 - **Per-agent token scoping**: Domain agents only hold credentials for their authorized service.
-- **Outbound HTTP sandboxing**: `ScopedHTTPClient` enforces domain whitelisting per agent process.
+- **Outbound HTTP sandboxing**: `ScopedHTTPClient` enforces domain allowlisting per agent process.
 - **AES-256-GCM encryption at rest**: OAuth access and refresh tokens are encrypted at application level before writing to MongoDB.
-- **Database**: MongoDB Atlas M0 Free Tier (512 MB, 500 connections, no inactivity auto-pausing).
+- **100% Free**: Operates entirely within permanent free tiers; no paid subscriptions or credit cards required.
 
 ## Setup & Running
 

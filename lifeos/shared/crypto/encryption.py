@@ -4,16 +4,20 @@ import secrets
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+_PROCESS_DEFAULT_KEY: bytes | None = None
+
 
 class TokenEncryption:
     """AES-256-GCM Token Encryption Engine."""
 
     def __init__(self, key: bytes | str | None = None):
+        global _PROCESS_DEFAULT_KEY
         if key is None:
             raw_env_key = os.getenv("LIFEOS_ENCRYPTION_KEY")
             if not raw_env_key:
-                # Generate a temporary key if none configured
-                self._key = secrets.token_bytes(32)
+                if _PROCESS_DEFAULT_KEY is None:
+                    _PROCESS_DEFAULT_KEY = secrets.token_bytes(32)
+                self._key = _PROCESS_DEFAULT_KEY
             else:
                 self._key = base64.b64decode(raw_env_key)
         elif isinstance(key, str):

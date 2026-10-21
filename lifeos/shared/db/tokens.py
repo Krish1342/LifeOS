@@ -28,8 +28,8 @@ class TokenStore:
         user_id: str,
         service: str,
         access_token: str,
-        refresh_token: str | None,
-        scopes: list[str],
+        refresh_token: str | None = None,
+        scopes: list[str] | None = None,
         expires_at: datetime | None = None
     ) -> None:
         """Encrypts tokens and stores or updates them in the oauth_tokens collection."""

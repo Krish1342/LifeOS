@@ -45,9 +45,23 @@ def keygen():
 
 
 @cli.command()
-@click.argument("service", type=click.Choice(["calendar", "email", "drive"]))
-def connect(service: str):
-    """Initiate OAuth authorization for a Google service."""
+@click.argument("service", type=click.Choice(["calendar", "email", "drive", "clerk"]))
+@click.option("--user-id", default="default_user", help="User ID for Clerk token synchronization")
+def connect(service: str, user_id: str):
+    """Initiate OAuth authorization for a Google service or synchronize via Clerk."""
+    if service == "clerk":
+        try:
+            resp = httpx.post(
+                "http://127.0.0.1:8000/api/auth/clerk/sync-tokens",
+                json={"user_id": user_id, "provider": "oauth_google"},
+                timeout=10.0
+            )
+            data = resp.json()
+            console.print(f"Clerk token sync: {data.get('message', data.get('status'))}")
+        except Exception as e:
+            console.print(f"[red]Error synchronizing from Clerk: {e}[/red]")
+        return
+
     service_map = {
         "calendar": "google_calendar",
         "email": "gmail",
@@ -55,12 +69,12 @@ def connect(service: str):
     }
     target_service = service_map[service]
     url = f"http://127.0.0.1:8000/oauth/connect/{target_service}"
-    console.print(f"[bold cyan]Opening browser for {service.capitalize()} authorization...[/bold cyan]")
+    console.print(f"[bold cyan]Opening authorization for {service}...[/bold cyan]")
     console.print(f"URL: {url}")
     try:
         webbrowser.open(url)
     except Exception:
-        console.print(f"Please open this link in your browser: {url}")
+        console.print(f"Open link in browser: {url}")
 
 
 @cli.command()

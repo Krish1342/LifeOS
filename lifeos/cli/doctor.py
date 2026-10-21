@@ -101,5 +101,12 @@ async def run_diagnostics() -> bool:
     else:
         table.add_row("Agent Cluster", "[yellow]STANDBY[/yellow]", "No active daemon processes (start with 'lifeos up')")
 
+    # 6. Auth & Free-Tier Zero-Cost Status
+    clerk_key = os.getenv("CLERK_SECRET_KEY")
+    if clerk_key:
+        table.add_row("Authentication (Clerk)", "[green]PASS[/green]", "Configured (Free Tier: 10k MAUs, 0 cost)")
+    else:
+        table.add_row("Authentication (Clerk)", "[cyan]LOCAL[/cyan]", "Local mode (free tier, no credit card required)")
+
     console.print(table)
     return all_passed

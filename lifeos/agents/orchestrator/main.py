@@ -19,6 +19,7 @@ from lifeos.shared.a2a import (
     SupportedInterface,
 )
 from lifeos.shared.audit import PrivacyAuditTracker
+from lifeos.shared.auth.clerk import ClerkAuthManager
 from lifeos.shared.google.auth import GoogleAuthManager
 from lifeos.shared.http import RateLimitMiddleware
 from lifeos.shared.llm import LocalLLMClient
@@ -493,6 +494,46 @@ async def get_privacy_status(user_id: str = "default_user"):
     """Verifies that private user data has remained local with 0 cloud LLM leaks."""
     metrics = await PrivacyAuditTracker.get_privacy_metrics(user_id=user_id)
     return metrics
+
+
+class ClerkSyncRequest(BaseModel):
+    user_id: str = "default_user"
+    provider: str = "oauth_google"
+
+
+@agent_app.app.get("/api/auth/config")
+async def get_auth_config():
+    """Returns authentication configuration and free-tier zero-cost verification."""
+    clerk = ClerkAuthManager()
+    return {
+        "auth_provider": "clerk" if clerk.is_configured else "local",
+        "clerk_configured": clerk.is_configured,
+        "clerk_publishable_key": clerk.publishable_key,
+        "free_tier_status": "active (100% free, zero cost, no credit card required)",
+    }
+
+
+@agent_app.app.post("/api/auth/clerk/sync-tokens")
+async def sync_clerk_oauth_tokens(req: ClerkSyncRequest):
+    """Synchronizes OAuth access tokens from Clerk's free tier into the encrypted store."""
+    clerk = ClerkAuthManager()
+    if not clerk.is_configured:
+        return {
+            "status": "skipped",
+            "message": "Clerk is not configured. Running in local zero-cost mode."
+        }
+    synced = await clerk.sync_tokens_to_db(user_id=req.user_id, provider=req.provider)
+    if not synced:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not retrieve active {req.provider} token from Clerk for user {req.user_id}."
+        )
+    return {
+        "status": "synced",
+        "user_id": req.user_id,
+        "provider": req.provider,
+        "message": "Tokens synchronized successfully into encrypted store."
+    }
 
 
 @agent_app.app.get("/api/health/all")
