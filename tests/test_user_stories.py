@@ -15,7 +15,7 @@ async def test_story_1_summarize_my_week():
         data = resp.json()
         assert data["status"] == "completed"
         assert "briefing" in data
-        assert "LifeOS Weekly Summary" in data["briefing"]
+        assert "Weekly Summary" in data["briefing"]
         assert "Calendar" in data["briefing"]
         assert "Inbox" in data["briefing"]
 

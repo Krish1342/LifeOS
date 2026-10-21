@@ -58,7 +58,7 @@ def connect(service: str):
 @cli.command()
 def up():
     """Start all 6 LifeOS agents as local FastAPI services."""
-    console.print("[bold cyan]🚀 Starting LifeOS Agent Cluster...[/bold cyan]")
+    console.print("[bold]Starting LifeOS agent cluster...[/bold]")
     processes = []
     try:
         for name, app_str, port in AGENTS:
@@ -76,17 +76,17 @@ def up():
             ]
             p = subprocess.Popen(cmd)
             processes.append((name, p, port))
-            console.print(f"  [green]✓[/green] Started {name} Agent on port [bold]{port}[/bold]")
+            console.print(f"  Started {name.lower()} agent on port {port}")
 
-        console.print("\n[bold green]All agents started successfully.[/bold green] Press Ctrl+C to stop.\n")
+        console.print("[green]All agents running.[/green] Press Ctrl+C to stop.\n")
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        console.print("\n[yellow]Stopping agents...[/yellow]")
+        console.print("\nStopping agents...")
         for name, p, _ in processes:
             p.terminate()
             p.wait()
-        console.print("[green]All agents stopped.[/green]")
+        console.print("All agents stopped.")
 
 
 @cli.command()
@@ -129,10 +129,10 @@ def run(command_text: str, yes: bool):
 
         # Check if write confirmation is required
         if data.get("status") == "confirmation_required":
-            console.print("\n[bold yellow]⚠️  Write Confirmation Required[/bold yellow]")
-            console.print(Panel(data.get("prompt", "Please approve pending actions:"), title="Confirmation Prompt"))
+            console.print("\n[bold yellow]Confirmation Required[/bold yellow]")
+            console.print(Panel(data.get("prompt", "Please approve pending actions:"), title="Action Approval"))
             
-            table = Table(title="Pending Write Actions")
+            table = Table(title="Pending Actions")
             table.add_column("#", style="dim")
             table.add_column("Action", style="bold")
             table.add_column("Details")
@@ -143,7 +143,7 @@ def run(command_text: str, yes: bool):
                 table.add_row(str(idx), act_name, details)
             console.print(table)
 
-            approved = click.confirm("\nApprove execution of these actions?", default=True)
+            approved = click.confirm("\nApprove execution?", default=True)
             conf_resp = httpx.post(
                 "http://127.0.0.1:8000/api/confirm",
                 json={
@@ -155,15 +155,15 @@ def run(command_text: str, yes: bool):
             conf_resp.raise_for_status()
             conf_data = conf_resp.json()
             if approved:
-                console.print(f"[bold green]✓[/bold green] {conf_data.get('message')}")
+                console.print(f"[green]Approved:[/green] {conf_data.get('message')}")
             else:
-                console.print(f"[yellow]✗[/yellow] {conf_data.get('message')}")
+                console.print(f"[yellow]Canceled:[/yellow] {conf_data.get('message')}")
             return
 
         # Regular completed output
-        console.print(f"[bold green]Status:[/bold green] {data.get('status')}")
+        console.print(f"[green]Status:[/green] {data.get('status')}")
         if "briefing" in data:
-            console.print(Panel(data["briefing"], title="LifeOS Briefing", style="green"))
+            console.print(Panel(data["briefing"], title="Briefing"))
         elif "results" in data:
             console.print_json(data=data.get("results"))
     except Exception as e:

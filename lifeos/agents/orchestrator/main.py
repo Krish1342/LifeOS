@@ -1,10 +1,11 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
+import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
 from lifeos.shared.a2a import (
@@ -23,6 +24,7 @@ from lifeos.shared.a2a import (
 from lifeos.shared.llm import LocalLLMClient, DataSensitivity
 from lifeos.shared.db.mongo import MongoDB
 from lifeos.shared.google.auth import GoogleAuthManager
+from lifeos.web import DASHBOARD_HTML
 
 card = AgentCard(
     name="LifeOS Orchestrator",
@@ -175,10 +177,10 @@ async def execute_user_command(req: CommandRequest):
         )
 
         briefing = [
-            f"📋 **LifeOS Weekly Summary**",
-            f"• **Calendar**: {len(events)} upcoming events scheduled.",
-            f"• **Inbox**: {email_summary}",
-            f"• **Active Tasks**: {len(tasks)} open tasks requiring attention."
+            f"Weekly Summary:",
+            f"- Calendar: {len(events)} events scheduled.",
+            f"- Inbox: {email_summary}",
+            f"- Tasks: {len(tasks)} open tasks."
         ]
         summary_text = "\n".join(briefing)
 
@@ -355,7 +357,7 @@ async def handle_user_confirmation(conf_req: ConfirmationRequest):
         task_res = await _dispatch_agent("task", "bulk_create_tasks", {"tasks": items}, context_id, user_id)
         # Notify user on Slack
         await _dispatch_agent("notification", "send_slack", {
-            "message": f"✅ Confirmed: Created {len(items)} new tasks in LifeOS board."
+            "message": f"Confirmed: Created {len(items)} tasks in LifeOS board."
         }, context_id, user_id)
         return {
             "status": "completed",
@@ -367,7 +369,7 @@ async def handle_user_confirmation(conf_req: ConfirmationRequest):
         event = pending["event"]
         cal_res = await _dispatch_agent("calendar", "create_event", event, context_id, user_id)
         await _dispatch_agent("notification", "send_slack", {
-            "message": f"📅 Confirmed: Created calendar event '{event['summary']}'."
+            "message": f"Confirmed: Created calendar event '{event['summary']}'."
         }, context_id, user_id)
         return {
             "status": "completed",
@@ -384,6 +386,51 @@ async def handle_user_confirmation(conf_req: ConfirmationRequest):
         }
 
     return {"status": "completed", "message": "Action executed."}
+
+
+@agent_app.app.get("/", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serves the LifeOS Web Dashboard UI."""
+    return HTMLResponse(content=DASHBOARD_HTML)
+
+
+@agent_app.app.get("/api/tasks")
+async def get_dashboard_tasks(user_id: str = "default_user"):
+    """Fetches active tasks from the Task Agent for the Web UI task board."""
+    task_res = await _dispatch_agent("task", "list_open_tasks", {}, "ctx_dashboard_tasks", user_id)
+    tasks = []
+    if task_res.get("status") == "completed":
+        artifacts = task_res.get("task", {}).get("artifacts", [])
+        if artifacts and len(artifacts) > 0:
+            parts = artifacts[0].get("parts", [])
+            if parts and len(parts) > 0:
+                tasks = parts[0].get("data", {}).get("tasks", [])
+    return {"tasks": tasks}
+
+
+@agent_app.app.post("/api/tasks/{task_id}/toggle")
+async def toggle_task_status(task_id: str, user_id: str = "default_user"):
+    """Marks a task as completed from the Web UI."""
+    res = await _dispatch_agent("task", "complete_task", {"task_id": task_id}, "ctx_dashboard_toggle", user_id)
+    return {"status": "success", "task_id": task_id, "result": res}
+
+
+@agent_app.app.get("/api/command/stream")
+async def stream_user_command(command: str, user_id: str = "default_user", auto_confirm: bool = False):
+    """
+    Streams multi-agent task execution progress via Server-Sent Events (SSE).
+    """
+    async def event_generator():
+        yield f"event: step\ndata: {json.dumps({'message': 'Initializing A2A multi-agent dispatch'})}\n\n"
+        await asyncio.sleep(0.05)
+        
+        req = CommandRequest(command=command, user_id=user_id, auto_confirm=auto_confirm)
+        result = await execute_user_command(req)
+        
+        yield f"event: agent_result\ndata: {json.dumps(result)}\n\n"
+        yield f"event: done\ndata: {json.dumps({'status': result.get('status')})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @agent_app.app.get("/api/health/all")
