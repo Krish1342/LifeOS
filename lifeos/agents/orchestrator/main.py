@@ -20,10 +20,12 @@ from lifeos.shared.a2a import (
     Artifact,
     DataPart,
     Message,
+    AgentRegistry,
 )
 from lifeos.shared.llm import LocalLLMClient, DataSensitivity
 from lifeos.shared.db.mongo import MongoDB
 from lifeos.shared.google.auth import GoogleAuthManager
+from lifeos.shared.scheduler import WorkflowScheduler, ScheduleJob
 from lifeos.web import DASHBOARD_HTML
 
 card = AgentCard(
@@ -54,6 +56,12 @@ DOMAIN_AGENTS = {
 agent_app = A2AAgentApp(card)
 a2a_client = A2AClient(timeout=0.5)
 llm_client = LocalLLMClient()
+agent_registry = AgentRegistry()
+
+async def _scheduled_executor(cmd: str):
+    await execute_user_command(CommandRequest(command=cmd, auto_confirm=True))
+
+scheduler = WorkflowScheduler(executor=_scheduled_executor)
 
 # In-memory store for pending write confirmations
 PENDING_CONFIRMATIONS: Dict[str, Dict[str, Any]] = {}
@@ -97,7 +105,8 @@ async def oauth_callback(code: str, state: str):
 
 
 async def _dispatch_agent(agent_name: str, skill: str, params: dict, context_id: str, user_id: str) -> Dict[str, Any]:
-    agent_url = DOMAIN_AGENTS.get(agent_name, "")
+    reg = agent_registry.get_agent(agent_name)
+    agent_url = reg.url if reg else DOMAIN_AGENTS.get(agent_name, "")
     try:
         task = await a2a_client.send_message(
             agent_url=agent_url,
@@ -116,14 +125,14 @@ async def _dispatch_agent(agent_name: str, skill: str, params: dict, context_id:
             from lifeos.agents.task.main import agent as task_agent
             from lifeos.agents.notification.main import agent as notif_agent
 
-            agent_registry = {
+            in_process_registry = {
                 "calendar": cal_agent,
                 "email": email_agent,
                 "file": file_agent,
                 "task": task_agent,
                 "notification": notif_agent,
             }
-            target_agent = agent_registry.get(agent_name)
+            target_agent = in_process_registry.get(agent_name)
             if target_agent and skill in target_agent.skills:
                 handler = target_agent.skills[skill]
                 msg = Message(
@@ -431,6 +440,45 @@ async def stream_user_command(command: str, user_id: str = "default_user", auto_
         yield f"event: done\ndata: {json.dumps({'status': result.get('status')})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+class ScheduleRequest(BaseModel):
+    command: str
+    interval_seconds: int = 3600
+
+
+@agent_app.app.get("/api/schedules")
+async def list_schedules():
+    """Returns all active automated recurring commands."""
+    jobs = await scheduler.list_jobs()
+    return {"schedules": [j.model_dump() for j in jobs]}
+
+
+@agent_app.app.post("/api/schedules")
+async def create_schedule(req: ScheduleRequest):
+    """Schedules a recurring natural-language command."""
+    job = await scheduler.add_job(command=req.command, interval_seconds=req.interval_seconds)
+    return {"status": "created", "schedule": job.model_dump()}
+
+
+@agent_app.app.delete("/api/schedules/{job_id}")
+async def delete_schedule(job_id: str):
+    """Deletes an active schedule."""
+    deleted = await scheduler.remove_job(job_id)
+    return {"status": "deleted" if deleted else "not_found", "job_id": job_id}
+
+
+class AgentRegisterRequest(BaseModel):
+    url: str
+
+
+@agent_app.app.post("/api/agents/register")
+async def register_domain_agent(req: AgentRegisterRequest):
+    """Dynamically discovers and registers an A2A agent via its agent card."""
+    card = await agent_registry.register(req.url)
+    if not card:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch agent card from {req.url}")
+    return {"status": "registered", "agent": card.name, "skills": [s.id for s in card.skills]}
 
 
 @agent_app.app.get("/api/health/all")

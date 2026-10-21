@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build: .
+    command: uvicorn lifeos.agents.orchestrator.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-lifeos}
+      - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    networks:
+      - lifeos-net
+
+  calendar:
+    build: .
+    command: uvicorn lifeos.agents.calendar.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    networks:
+      - lifeos-net
+
+  email:
+    build: .
+    command: uvicorn lifeos.agents.email.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    networks:
+      - lifeos-net
+
+  file:
+    build: .
+    command: uvicorn lifeos.agents.file.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    networks:
+      - lifeos-net
+
+  task:
+    build: .
+    command: uvicorn lifeos.agents.task.main:app --host 0.0.0.0 --port 8004
+    ports:
+      - "8004:8004"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    networks:
+      - lifeos-net
+
+  notification:
+    build: .
+    command: uvicorn lifeos.agents.notification.main:app --host 0.0.0.0 --port 8005
+    ports:
+      - "8005:8005"
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    networks:
+      - lifeos-net
+
+networks:
+  lifeos-net:
+    driver: bridge
