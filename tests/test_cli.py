@@ -18,14 +18,25 @@ def test_cli_tasks_list():
     with patch("httpx.get") as mock_get:
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = [
-            {"id": "t1", "title": "Buy groceries", "status": "open", "priority": "high", "due_date": "2026-10-25"}
-        ]
+        mock_resp.json.return_value = {
+            "tasks": [
+                {"id": "t1", "title": "Buy groceries", "status": "open", "priority": "high", "due_date": "2026-10-25"},
+                {"id": "t2", "title": "Pay bills", "status": "completed", "priority": "low", "due_date": "2026-10-20"},
+            ]
+        }
         mock_get.return_value = mock_resp
 
+        # Test listing all
         result = runner.invoke(cli, ["tasks", "list"])
         assert result.exit_code == 0
         assert "Buy groceries" in result.output
+        assert "Pay bills" in result.output
+
+        # Test status filtering
+        result_filtered = runner.invoke(cli, ["tasks", "list", "--status", "open"])
+        assert result_filtered.exit_code == 0
+        assert "Buy groceries" in result_filtered.output
+        assert "Pay bills" not in result_filtered.output
 
 
 def test_cli_schedule_list_and_add():

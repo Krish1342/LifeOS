@@ -22,7 +22,7 @@ from lifeos.shared.audit import PrivacyAuditTracker
 from lifeos.shared.auth.clerk import ClerkAuthManager
 from lifeos.shared.google.auth import GoogleAuthManager
 from lifeos.shared.http import RateLimitMiddleware
-from lifeos.shared.llm import LocalLLMClient
+from lifeos.shared.llm import LocalLLMClient, TaskPlanner
 from lifeos.shared.scheduler import WorkflowScheduler
 from lifeos.web import DASHBOARD_HTML
 
@@ -61,6 +61,8 @@ async def _scheduled_executor(cmd: str):
     await execute_user_command(CommandRequest(command=cmd, auto_confirm=True))
 
 scheduler = WorkflowScheduler(executor=_scheduled_executor)
+llm = LocalLLMClient()
+task_planner = TaskPlanner(llm_client=llm)
 
 # In-memory store for pending write confirmations
 PENDING_CONFIRMATIONS: dict[str, dict[str, Any]] = {}
@@ -324,20 +326,51 @@ async def execute_user_command(req: CommandRequest):
             "results": {"calendar": cal_res}
         }
 
-    # --- Generic Fallback (Parallel Read Dispatch) ---
+    # --- Dynamic Plan Execution ---
     else:
-        cal_res, task_res = await asyncio.gather(
-            _dispatch_agent("calendar", "list_events", {}, context_id, user_id),
-            _dispatch_agent("task", "list_open_tasks", {}, context_id, user_id)
-        )
+        plan_steps = await task_planner.plan(cmd)
+
+        # Check if plan has write actions requiring confirmation
+        write_steps = [s for s in plan_steps if s.get("is_write") and not req.auto_confirm]
+        if write_steps:
+            conf_id = f"conf_{uuid.uuid4().hex[:8]}"
+            PENDING_CONFIRMATIONS[conf_id] = {
+                "run_id": run_id,
+                "context_id": context_id,
+                "type": "dynamic_plan",
+                "user_id": user_id,
+                "steps": write_steps
+            }
+            return {
+                "status": "confirmation_required",
+                "confirmation_id": conf_id,
+                "prompt": f"Command requires confirmation for {len(write_steps)} write action(s).",
+                "pending_actions": [
+                    {"action": f"{s['agent']}.{s['skill']}", "params": s.get("params", {})}
+                    for s in write_steps
+                ]
+            }
+
+        # Execute read or auto-confirmed steps in parallel
+        dispatch_coros = [
+            _dispatch_agent(s["agent"], s["skill"], s.get("params", {}), context_id, user_id)
+            for s in plan_steps
+        ]
+        results_list = await asyncio.gather(*dispatch_coros) if dispatch_coros else []
+        results_map = {f"{s['agent']}.{s['skill']}": res for s, res in zip(plan_steps, results_list)}
+
         duration_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+        agents_contacted = list({s["agent"] for s in plan_steps})
+        briefing = f"Executed {len(plan_steps)} subtask(s) across: {', '.join(agents_contacted)}."
+
         return {
             "status": "completed",
             "run_id": run_id,
             "context_id": context_id,
             "duration_ms": duration_ms,
-            "briefing": f"Processed general inquiry '{cmd}'. Retrieved calendar and task context.",
-            "results": {"calendar": cal_res, "task": task_res}
+            "agents_contacted": agents_contacted,
+            "briefing": briefing,
+            "results": results_map
         }
 
 
@@ -393,6 +426,18 @@ async def handle_user_confirmation(conf_req: ConfirmationRequest):
             "status": "completed",
             "message": "Drive folder organization completed successfully.",
             "results": {"file": file_res}
+        }
+
+    elif op_type == "dynamic_plan":
+        steps = pending.get("steps", [])
+        executed = []
+        for s in steps:
+            res = await _dispatch_agent(s["agent"], s["skill"], s.get("params", {}), context_id, user_id)
+            executed.append(res)
+        return {
+            "status": "completed",
+            "message": f"Successfully executed {len(steps)} confirmed write operation(s).",
+            "results": executed
         }
 
     return {"status": "completed", "message": "Action executed."}

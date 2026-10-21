@@ -198,15 +198,24 @@ def tasks():
 
 
 @tasks.command("list")
-def list_tasks():
-    """List all open and completed tasks."""
+@click.option("--status", "-s", type=click.Choice(["all", "open", "completed"]), default="all")
+@click.option("--priority", "-p", type=click.Choice(["all", "high", "medium", "low"]), default="all")
+def list_tasks(status: str, priority: str):
+    """List tasks with optional status and priority filtering."""
     url = "http://127.0.0.1:8000/api/tasks"
     try:
         resp = httpx.get(url, timeout=5.0)
         resp.raise_for_status()
-        items = resp.json()
+        data = resp.json()
+        items = data.get("tasks", []) if isinstance(data, dict) else data
+
+        if status != "all":
+            items = [t for t in items if t.get("status") == status]
+        if priority != "all":
+            items = [t for t in items if t.get("priority") == priority]
+
         if not items:
-            console.print("No tasks found.")
+            console.print("No matching tasks found.")
             return
 
         table = Table(title="Tasks")
@@ -220,11 +229,11 @@ def list_tasks():
             status_style = "green" if t.get("status") == "completed" else "yellow"
             status_str = f"[{status_style}]{t.get('status', 'open')}[/{status_style}]"
             table.add_row(
-                str(t.get("id", ""))[:8],
+                str(t.get("task_id", t.get("id", "")))[:8],
                 status_str,
                 t.get("priority", "medium"),
                 t.get("title", ""),
-                t.get("due_date", "None"),
+                str(t.get("due_date") or "None"),
             )
         console.print(table)
     except Exception as e:
