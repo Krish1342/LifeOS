@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - lifeos-net
+
   orchestrator:
     build: .
     command: uvicorn lifeos.agents.orchestrator.main:app --host 0.0.0.0 --port 8000
@@ -10,7 +20,11 @@ services:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-lifeos}
       - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    depends_on:
+      - mongodb
     networks:
       - lifeos-net
 
@@ -22,6 +36,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    depends_on:
+      - mongodb
     networks:
       - lifeos-net
 
@@ -34,6 +50,8 @@ services:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    depends_on:
+      - mongodb
     networks:
       - lifeos-net
 
@@ -45,6 +63,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    depends_on:
+      - mongodb
     networks:
       - lifeos-net
 
@@ -56,6 +76,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - LIFEOS_ENCRYPTION_KEY=${LIFEOS_ENCRYPTION_KEY}
+    depends_on:
+      - mongodb
     networks:
       - lifeos-net
 
@@ -68,6 +90,9 @@ services:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
     networks:
       - lifeos-net
+
+volumes:
+  mongo-data:
 
 networks:
   lifeos-net:
