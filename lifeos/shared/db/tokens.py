@@ -5,6 +5,8 @@ from lifeos.shared.crypto.encryption import TokenEncryption
 from lifeos.shared.db.mongo import MongoDB
 from lifeos.shared.http.client import SecurityError
 
+_MEMORY_TOKENS: dict[str, dict[str, Any]] = {}
+
 
 class TokenStore:
     """
@@ -15,7 +17,6 @@ class TokenStore:
     def __init__(self, allowed_service: str | None = None):
         self.allowed_service = allowed_service
         self.crypto = TokenEncryption()
-        self._memory_tokens: dict[str, dict[str, Any]] = {}
 
     def _verify_service(self, service: str) -> None:
         if self.allowed_service and self.allowed_service != service:
@@ -59,7 +60,7 @@ class TokenStore:
                 upsert=True
             )
         except Exception:
-            self._memory_tokens[f"{user_id}:{service}"] = doc
+            _MEMORY_TOKENS[f"{user_id}:{service}"] = doc
 
     async def get_credentials(self, user_id: str, service: str) -> dict[str, Any] | None:
         """
@@ -73,7 +74,7 @@ class TokenStore:
             db = MongoDB.get_database()
             token_doc = await db.oauth_tokens.find_one({"user_id": user_id, "service": service})
         except Exception:
-            token_doc = self._memory_tokens.get(f"{user_id}:{service}")
+            token_doc = _MEMORY_TOKENS.get(f"{user_id}:{service}")
 
         if not token_doc:
             return None
